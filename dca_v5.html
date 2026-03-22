@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>定投决策工具</title>
+<style>
+:root{
+  --bg:#0f0f0f;--s1:#1a1a1a;--s2:#222;--bd:#2a2a2a;
+  --tx:#e8e8e8;--mu:#666;--hi:#3a3a3a;
+  --green:#4ade80;--gdim:#0d2010;--gtx:#86efac;
+  --teal:#2dd4bf;--tdim:#0d2e2b;
+  --amber:#fbbf24;--adim:#251c00;--atx:#fcd34d;
+  --red:#f87171;--rdim:#2a0a0a;--rtx:#fca5a5;
+  --blue:#60a5fa;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);color:var(--tx);font-family:'PingFang SC','SF Pro Text',system-ui,sans-serif;min-height:100vh;padding:14px;max-width:520px;margin:0 auto;}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--bd);}
+.topbar-title{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--mu);}
+.topbar-date{font-size:11px;color:var(--hi);}
+
+.fetch-card{background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:10px;}
+.fetch-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.fetch-header-title{font-size:10px;color:var(--mu);letter-spacing:.1em;text-transform:uppercase;}
+.fetch-btn{padding:8px 16px;border-radius:8px;border:1px solid var(--bd);background:var(--s2);color:var(--tx);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:7px;transition:.15s;}
+.fetch-btn:active{background:var(--bd);}
+.fetch-btn.loading{color:var(--blue);border-color:var(--blue);}
+.spin{display:inline-block;width:11px;height:11px;border:1.5px solid currentColor;border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite;flex-shrink:0;}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.data-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+.data-cell{background:var(--s2);border-radius:9px;padding:11px 12px;position:relative;}
+.data-cell.editable{cursor:pointer;}
+.data-cell.editable:active{background:var(--bd);}
+.dc-label{font-size:9px;color:var(--mu);letter-spacing:.05em;margin-bottom:4px;}
+.dc-val{font-size:22px;font-weight:200;min-height:28px;line-height:1;}
+.dc-sub{font-size:10px;margin-top:3px;min-height:14px;}
+.dc-edit{width:100%;background:transparent;border:none;outline:none;color:var(--tx);font-size:22px;font-weight:200;display:none;}
+.dc-edit::placeholder{color:var(--hi);}
+.edit-hint{font-size:9px;color:var(--hi);position:absolute;top:8px;right:10px;opacity:0;transition:.2s;}
+.data-cell.editable:hover .edit-hint{opacity:1;}
+
+.rate-cell{background:var(--s2);border-radius:9px;padding:11px 12px;}
+.rate-chips{display:flex;gap:5px;margin-top:7px;}
+.rc-chip{flex:1;padding:6px 4px;border-radius:6px;border:1px solid var(--bd);font-size:10px;text-align:center;color:var(--mu);cursor:pointer;transition:.15s;}
+.rc-chip.on-hold{background:var(--adim);border-color:var(--amber);color:var(--atx);font-weight:500;}
+.rc-chip.on-hike{background:var(--rdim);border-color:var(--red);color:var(--rtx);font-weight:500;}
+.rc-chip.on-cut {background:var(--gdim);border-color:var(--green);color:var(--gtx);font-weight:500;}
+
+.fetch-note{font-size:9px;color:var(--hi);line-height:1.6;margin-top:8px;}
+
+.result-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.rc{background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:14px;transition:.25s;}
+.rc.cg{border-color:var(--green);background:var(--gdim);}
+.rc.ct{border-color:var(--teal);background:var(--tdim);}
+.rc.ca{border-color:var(--amber);background:var(--adim);}
+.rc.cr{border-color:var(--red);background:var(--rdim);}
+.rc-name{font-size:10px;color:var(--mu);display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.badge{font-size:9px;padding:1px 7px;border-radius:10px;}
+.bs{background:#222;color:#666;}
+.bn{background:#1a3020;color:#4ade80;}
+.bt{background:#0d2e2b;color:#2dd4bf;}
+.bh{background:#251c00;color:#fbbf24;}
+.bx{background:#2a0a0a;color:#f87171;}
+.rc-amt{font-size:34px;font-weight:200;margin-bottom:1px;}
+.rc-sub{font-size:10px;color:var(--mu);margin-bottom:8px;}
+.rc-detail{font-size:10px;color:var(--mu);line-height:1.75;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);}
+.rc-detail strong{color:var(--tx);font-weight:400;}
+
+.scene{background:var(--s2);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--mu);line-height:1.65;display:none;}
+.scene.show{display:block;}
+.sn{border-left:2px solid var(--teal);padding-left:10px;margin-bottom:6px;}
+.ss{border-left:2px solid var(--green);padding-left:10px;}
+
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:10px;}
+.sec-title{font-size:10px;color:var(--mu);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
+.bud-item{margin-bottom:10px;}
+.bud-item:last-child{margin-bottom:0;}
+.bud-head{display:flex;justify-content:space-between;font-size:11px;color:var(--mu);margin-bottom:5px;}
+.bar-bg{height:5px;background:var(--bd);border-radius:3px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:3px;transition:.5s;}
+.bud-foot{display:flex;justify-content:space-between;font-size:10px;color:var(--hi);margin-top:3px;}
+
+.hist-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.hist-head span{font-size:12px;font-weight:500;}
+.clr-btn{font-size:10px;color:var(--hi);cursor:pointer;padding:2px 8px;border-radius:4px;border:1px solid var(--bd);background:transparent;}
+.hi-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--bd);}
+.hi-item:last-child{border-bottom:none;}
+.hi-l .hd{font-size:12px;color:var(--tx);font-weight:500;margin-bottom:2px;}
+.hi-l .hm{font-size:10px;color:var(--hi);}
+.hi-r{font-size:11px;text-align:right;line-height:1.7;}
+.no-hi{font-size:11px;color:var(--hi);text-align:center;padding:20px 0;}
+
+.save-btn{width:100%;padding:13px;background:var(--s2);border:1px solid var(--bd);border-radius:10px;color:var(--tx);font-size:13px;cursor:pointer;letter-spacing:.03em;margin-bottom:10px;}
+.save-btn:active{background:var(--bd);}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid #333;padding:10px 18px;border-radius:8px;font-size:12px;color:var(--tx);opacity:0;transition:.3s;pointer-events:none;z-index:999;white-space:nowrap;}
+.toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-title">定投决策</span>
+  <span class="topbar-date" id="today-date"></span>
+</div>
+
+<div class="fetch-card">
+  <div class="fetch-header">
+    <span class="fetch-header-title">实时市场数据</span>
+    <button class="fetch-btn" id="fetch-btn" onclick="fetchAll()">
+      <span id="fetch-icon">一键获取</span>
+    </button>
+  </div>
+
+  <div class="data-grid">
+    <div class="data-cell editable" onclick="startEdit('ndx')">
+      <span class="edit-hint">点击编辑</span>
+      <div class="dc-label">纳斯达克 · 距52周高点</div>
+      <div class="dc-val" id="ndx-val" style="color:var(--mu)">—</div>
+      <div class="dc-sub" id="ndx-sub">未获取</div>
+      <input class="dc-edit" id="ndx-edit" type="number" step="0.1" placeholder="-8.0"
+        onblur="endEdit('ndx')" oninput="onManual('ndx',this.value)">
+    </div>
+    <div class="data-cell editable" onclick="startEdit('sp')">
+      <span class="edit-hint">点击编辑</span>
+      <div class="dc-label">标普500 · 距52周高点</div>
+      <div class="dc-val" id="sp-val" style="color:var(--mu)">—</div>
+      <div class="dc-sub" id="sp-sub">未获取</div>
+      <input class="dc-edit" id="sp-edit" type="number" step="0.1" placeholder="-5.0"
+        onblur="endEdit('sp')" oninput="onManual('sp',this.value)">
+    </div>
+    <div class="data-cell editable" onclick="startEdit('vix')">
+      <span class="edit-hint">点击编辑</span>
+      <div class="dc-label">VIX 恐慌指数</div>
+      <div class="dc-val" id="vix-val" style="color:var(--mu)">—</div>
+      <div class="dc-sub" id="vix-sub">未获取</div>
+      <input class="dc-edit" id="vix-edit" type="number" step="0.1" placeholder="20"
+        onblur="endEdit('vix')" oninput="onManual('vix',this.value)">
+    </div>
+    <div class="rate-cell">
+      <div class="dc-label">美联储利率方向</div>
+      <div class="dc-val" id="fed-val" style="font-size:14px;color:var(--mu);padding-top:2px;">手动选择</div>
+      <div class="rate-chips">
+        <span class="rc-chip on-hold" id="chip-hold" onclick="setRate('hold')">暂停</span>
+        <span class="rc-chip" id="chip-hike" onclick="setRate('hike')">加息</span>
+        <span class="rc-chip" id="chip-cut"  onclick="setRate('cut')">降息</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="fetch-note" id="fetch-note">
+    数据来自 Yahoo Finance，完全免费无需API Key。点击「一键获取」自动抓取纳斯达克/标普52周高点跌幅和VIX。美联储方向手动选择，每季度变化一次。
+  </div>
+</div>
+
+<div class="result-pair">
+  <div class="rc" id="rc-ndx">
+    <div class="rc-name">纳斯达克100<span class="badge bs" id="badge-ndx">—</span></div>
+    <div class="rc-amt" id="amt-ndx">—</div>
+    <div class="rc-sub">元 / 周</div>
+    <div class="rc-detail" id="det-ndx" style="display:none;"></div>
+  </div>
+  <div class="rc" id="rc-sp">
+    <div class="rc-name">标普500<span class="badge bs" id="badge-sp">—</span></div>
+    <div class="rc-amt" id="amt-sp">—</div>
+    <div class="rc-sub">元 / 周</div>
+    <div class="rc-detail" id="det-sp" style="display:none;"></div>
+  </div>
+</div>
+
+<div class="scene" id="scene">
+  <div class="sn" id="scene-ndx"></div>
+  <div class="ss" id="scene-sp"></div>
+</div>
+
+<button class="save-btn" onclick="saveRecord()">记录本月操作 →</button>
+
+<div class="card">
+  <div class="sec-title">
+    <span>年度预算进度</span>
+    <span id="bud-yr" style="color:var(--hi);font-size:9px;letter-spacing:0;text-transform:none;"></span>
+  </div>
+  <div class="bud-item">
+    <div class="bud-head"><span>纳斯达克100</span><span id="ndx-pct">0%</span></div>
+    <div class="bar-bg"><div class="bar-fill" id="ndx-bar" style="background:var(--teal);width:0%"></div></div>
+    <div class="bud-foot"><span>已用 <span id="ndx-used">0</span> 元</span><span>上限 7,680 元</span></div>
+  </div>
+  <div class="bud-item">
+    <div class="bud-head"><span>标普500</span><span id="sp-pct">0%</span></div>
+    <div class="bar-bg"><div class="bar-fill" id="sp-bar" style="background:var(--green);width:0%"></div></div>
+    <div class="bud-foot"><span>已用 <span id="sp-used">0</span> 元</span><span>上限 9,600 元</span></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="hist-head">
+    <span>历史记录</span>
+    <button class="clr-btn" onclick="clearHist()">清除</button>
+  </div>
+  <div id="hist-list"><div class="no-hi">暂无记录</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const NDX_CAP=7680,SP_CAP=9600,NDX_BASE=160,SP_BASE=200;
+let rateMode='hold';
+let vals={ndx:null,sp:null,vix:null};
+let cur={};
+
+const now=new Date();
+document.getElementById('today-date').textContent=
+  `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}`;
+document.getElementById('bud-yr').textContent=now.getFullYear()+'年';
+
+// ── Yahoo Finance 数据抓取 ──
+// 通过 allorigins.win 代理绕过CORS限制（免费公共代理）
+async function fetchYahoo(symbol){
+  const url=`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1y`;
+  const proxy=`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+  const resp=await fetch(proxy);
+  const data=await resp.json();
+  const contents=JSON.parse(data.contents);
+  const meta=contents.chart.result[0].meta;
+  const current=meta.regularMarketPrice;
+  const high52=meta.fiftyTwoWeekHigh;
+  const dd=((current-high52)/high52*100);
+  return{current,high52,dd:parseFloat(dd.toFixed(2))};
+}
+
+async function fetchAll(){
+  const btn=document.getElementById('fetch-btn');
+  const icon=document.getElementById('fetch-icon');
+  btn.classList.add('loading');
+  icon.innerHTML='<span class="spin"></span> 获取中';
+  document.getElementById('fetch-note').textContent='正在从Yahoo Finance获取数据...';
+
+  let ok=0, fail=[];
+
+  // 并发获取三个
+  const results=await Promise.allSettled([
+    fetchYahoo('QQQ'),   // 纳斯达克100 ETF
+    fetchYahoo('SPY'),   // 标普500 ETF
+    fetchYahoo('^VIX'),  // VIX指数
+  ]);
+
+  // 纳斯达克
+  if(results[0].status==='fulfilled'){
+    const d=results[0].value;
+    applyVal('ndx', d.dd);
+    ok++;
+  }else{ fail.push('纳斯达克'); }
+
+  // 标普
+  if(results[1].status==='fulfilled'){
+    const d=results[1].value;
+    applyVal('sp', d.dd);
+    ok++;
+  }else{ fail.push('标普500'); }
+
+  // VIX
+  if(results[2].status==='fulfilled'){
+    const d=results[2].value;
+    applyVal('vix', d.current);
+    ok++;
+  }else{ fail.push('VIX'); }
+
+  const ts=new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+  if(ok===3){
+    document.getElementById('fetch-note').textContent=`已更新 ${ts}（Yahoo Finance）· 美联储方向请手动选择`;
+    showToast('数据获取成功');
+  }else if(ok>0){
+    document.getElementById('fetch-note').textContent=`部分成功 ${ts}，${fail.join('、')}获取失败，请手动点击格子输入`;
+    showToast(`${ok}/3 项获取成功`);
+  }else{
+    document.getElementById('fetch-note').textContent='获取失败（可能是网络问题），请点击各格子手动输入数字';
+    showToast('获取失败，请手动输入');
+  }
+
+  btn.classList.remove('loading');
+  icon.textContent='重新获取';
+}
+
+// ── 数值设置 ──
+function applyVal(key,v){
+  if(isNaN(v))return;
+  vals[key]=v;
+  if(key==='ndx'){
+    const el=document.getElementById('ndx-val');
+    el.textContent=(v>0?'+':'')+v.toFixed(1)+'%';
+    const{col,lbl}=ddStyle(v);
+    el.style.color=col;
+    document.getElementById('ndx-sub').textContent=lbl;
+    document.getElementById('ndx-sub').style.color=col;
+  }else if(key==='sp'){
+    const el=document.getElementById('sp-val');
+    el.textContent=(v>0?'+':'')+v.toFixed(1)+'%';
+    const{col,lbl}=ddStyle(v);
+    el.style.color=col;
+    document.getElementById('sp-sub').textContent=lbl;
+    document.getElementById('sp-sub').style.color=col;
+  }else if(key==='vix'){
+    const el=document.getElementById('vix-val');
+    el.textContent=v.toFixed(1);
+    const{col,lbl}=vixStyle(v);
+    el.style.color=col;
+    document.getElementById('vix-sub').textContent=lbl;
+    document.getElementById('vix-sub').style.color=col;
+  }
+  compute();
+}
+
+function ddStyle(v){
+  if(v>=-5)  return{col:'#f87171',lbl:'高位区域'};
+  if(v>=-10) return{col:'#fbbf24',lbl:'轻度回调'};
+  if(v>=-15) return{col:'#60a5fa',lbl:'明显回调·加仓区'};
+  if(v>=-20) return{col:'#2dd4bf',lbl:'深跌·重仓区'};
+  return{col:'#4ade80',lbl:'极深跌·最大仓'};
+}
+function vixStyle(v){
+  if(v<18)return{col:'#4ade80',lbl:'市场平静'};
+  if(v<24)return{col:'#60a5fa',lbl:'正常波动'};
+  if(v<31)return{col:'#fbbf24',lbl:'市场紧张'};
+  return{col:'#f87171',lbl:'极度恐慌'};
+}
+
+// ── 手动编辑 ──
+function startEdit(key){
+  const e=document.getElementById(key+'-edit');
+  const v=document.getElementById(key+'-val');
+  if(!e||!v)return;
+  e.value=vals[key]!==null?vals[key]:'';
+  v.style.display='none'; e.style.display='block'; e.focus();
+}
+function endEdit(key){
+  const e=document.getElementById(key+'-edit');
+  const v=document.getElementById(key+'-val');
+  if(!e||!v)return;
+  e.style.display='none'; v.style.display='';
+}
+function onManual(key,val){
+  const v=parseFloat(val);
+  if(!isNaN(v))applyVal(key,v);
+}
+
+// ── 利率 ──
+const RLABEL={hold:'暂停观望',hike:'加息周期',cut:'降息周期'};
+function setRate(m){
+  rateMode=m;
+  ['hold','hike','cut'].forEach(x=>{
+    document.getElementById('chip-'+x).className='rc-chip'+(m===x?' on-'+x:'');
+  });
+  document.getElementById('fed-val').textContent=RLABEL[m];
+  document.getElementById('fed-val').style.color='var(--tx)';
+  compute();
+}
+
+// ── 矩阵 ──
+function ndxZone(dd){
+  if(dd>-10) return'UP';
+  if(dd>=-15)return'DN15';
+  if(dd>=-20)return'DN20';
+  return'DN25';
+}
+function spZone(dd){
+  if(dd>-10) return'UP';
+  if(dd>=-15)return'DN15';
+  if(dd>=-20)return'DN20';
+  return'DN25';
+}
+function vixZ(v,isNdx){
+  if(isNdx){if(v<18)return'V1';if(v<24)return'V2';if(v<31)return'V3';return'V4';}
+  else{if(v<18)return'V1';if(v<25)return'V2';if(v<35)return'V3';return'V4';}
+}
+const NR={
+  UP:  {V1:null,V2:null,V3:0.8,V4:0.8},
+  DN15:{V1:2.0, V2:2.5, V3:2.5,V4:3.0},
+  DN20:{V1:2.0, V2:3.0, V3:3.8,V4:3.8},
+  DN25:{V1:2.0, V2:3.0, V3:3.8,V4:3.8},
+};
+const SR={
+  UP:  {V1:null,V2:null,V3:0.8,V4:1.0},
+  DN15:{V1:1.5, V2:2.0, V3:2.0,V4:2.5},
+  DN20:{V1:1.5, V2:2.0, V3:2.5,V4:3.0},
+  DN25:{V1:1.5, V2:2.0, V3:2.5,V4:3.0},
+};
+function applyMode(r,m){
+  if(r===null)return null;
+  if(m==='hike')return Math.max(0.8,parseFloat((r-.5).toFixed(1)));
+  if(m==='cut') return Math.min(3.8,parseFloat((r+.3).toFixed(1)));
+  return r;
+}
+function calcW(r,base){return r===null?10:Math.round(r*base);}
+
+const ZL={
+  'ndx-UP':'距52周高点 0~-10%（高位区域）',
+  'ndx-DN15':'距52周高点 -10%~-15%（加仓区）',
+  'ndx-DN20':'距52周高点 -15%~-20%（深跌重仓区）',
+  'ndx-DN25':'距52周高点 >-20%（极深跌）',
+  'sp-UP':'距52周高点 0~-10%（高位区域）',
+  'sp-DN15':'距52周高点 -10%~-15%（回调加仓区）',
+  'sp-DN20':'距52周高点 -15%~-20%（深跌重仓区）',
+  'sp-DN25':'距52周高点 >-20%（极深跌）',
+};
+const VL={V1:'VIX<18 平静',V2:'VIX正常波动',V3:'VIX紧张',V4:'VIX极度恐慌'};
+const SC={
+  'ndx-UP':'高位区域，维持少量买入不停投，积累预算等待回调机会',
+  'ndx-DN15':'进入加仓区，3个月窗口计时开始。历史50%概率继续下跌，稳健加仓',
+  'ndx-DN20':'深跌重仓区，3个月窗口。反弹概率提升，历史最佳买入区之一',
+  'ndx-DN25':'跌幅超-20%，极端底部区域，3个月窗口，不超预算上限',
+  'sp-UP':'高位区域，极少买入，耐心等待回调',
+  'sp-DN15':'回调加仓区，2个月窗口计时开始。标普3月反弹率83%，历史最佳加仓点',
+  'sp-DN20':'深跌重仓区，2个月窗口。历史反弹概率提升',
+  'sp-DN25':'跌幅超-20%，2个月窗口，维持买入不停投',
+};
+function getBadge(r,z){
+  if(r===null)return['暂缓','bs'];
+  if(z==='DN25'||z==='DN20'){if(r>=3.5)return['极限','bx'];if(r>=2.5)return['重仓','bh'];return['加仓','bt'];}
+  if(z==='DN15')return r>=2?['加仓','bt']:['轻加','bn'];
+  if(r>=1.0)return['正常','bn'];return['减少','bs'];
+}
+function cardCls(r,z){
+  if(r===null)return'';
+  if(z==='DN25'||z==='DN20')return r>=3.5?'cr':'ca';
+  if(z==='DN15')return'ct';
+  if(r>=1.0)return'cg';return'';
+}
+
+function compute(){
+  const{ndx:nd,sp:sp_,vix:v}=vals;
+  if(nd===null||sp_===null||v===null)return;
+  const nz=ndxZone(nd),sz=spZone(sp_);
+  const nv=vixZ(v,true),sv=vixZ(v,false);
+  const nbr=NR[nz][nv],sbr=SR[sz][sv];
+  const nr=applyMode(nbr,rateMode),sr=applyMode(sbr,rateMode);
+  const nw=calcW(nr,NDX_BASE),sw=calcW(sr,SP_BASE);
+  const[nb,nbc]=getBadge(nr,nz),[sb,sbc]=getBadge(sr,sz);
+  const nc=cardCls(nr,nz),sc=cardCls(sr,sz);
+  const rm=rateMode==='hike'?' ↓加息':rateMode==='cut'?' ↑降息':'';
+
+  document.getElementById('rc-ndx').className='rc '+nc;
+  document.getElementById('badge-ndx').className='badge '+nbc;
+  document.getElementById('badge-ndx').textContent=nb;
+  document.getElementById('amt-ndx').textContent=nw;
+  const dn=document.getElementById('det-ndx');
+  dn.style.display='';
+  dn.innerHTML=`<strong>${ZL['ndx-'+nz]}</strong><br>${VL[nv]}<br>倍率 ${nr===null?'10元/周固定':nr+'x'+rm}`;
+
+  document.getElementById('rc-sp').className='rc '+sc;
+  document.getElementById('badge-sp').className='badge '+sbc;
+  document.getElementById('badge-sp').textContent=sb;
+  document.getElementById('amt-sp').textContent=sw;
+  const ds=document.getElementById('det-sp');
+  ds.style.display='';
+  ds.innerHTML=`<strong>${ZL['sp-'+sz]}</strong><br>${VL[sv]}<br>倍率 ${sr===null?'10元/周固定':sr+'x'+rm}`;
+
+  const scEl=document.getElementById('scene');
+  scEl.classList.add('show');
+  document.getElementById('scene-ndx').textContent='纳斯达克：'+SC['ndx-'+nz];
+  document.getElementById('scene-sp').textContent='标普500：'+SC['sp-'+sz];
+
+  cur={nd,sp:sp_,v,nw,sw,nr,sr,nb,sb,nz,sz,rate:rateMode};
+}
+
+// ── 保存 ──
+function saveRecord(){
+  if(!cur.nw){showToast('请先获取数据');return;}
+  const dt=new Date();
+  const label=`${dt.getFullYear()}年${dt.getMonth()+1}月`;
+  const recs=gls('dca_recs',[]);
+  recs.unshift({label,ts:Date.now(),...cur});
+  if(recs.length>24)recs.splice(24);
+  sls('dca_recs',recs);
+  const yr=dt.getFullYear();
+  const b=gls('dca_b_'+yr,{ndx:0,sp:0});
+  b.ndx=(b.ndx||0)+cur.nw*4;
+  b.sp=(b.sp||0)+cur.sw*4;
+  sls('dca_b_'+yr,b);
+  renderHist();renderBudget();
+  showToast('已记录本月操作');
+}
+
+// ── 历史 ──
+const RL={hold:'暂停',hike:'加息',cut:'降息'};
+const BC={暂缓:'#666',减少:'#888',正常:'#4ade80',轻加:'#4ade80',加仓:'#2dd4bf',重仓:'#fbbf24',极限:'#f87171'};
+function renderHist(){
+  const recs=gls('dca_recs',[]);
+  const el=document.getElementById('hist-list');
+  if(!recs.length){el.innerHTML='<div class="no-hi">暂无记录</div>';return;}
+  el.innerHTML=recs.map(r=>`
+    <div class="hi-item">
+      <div class="hi-l">
+        <div class="hd">${r.label}</div>
+        <div class="hm">纳${r.nd>0?'+':''}${r.nd}% · 标${r.sp>0?'+':''}${r.sp}% · VIX ${r.v} · ${RL[r.rate]||'暂停'}</div>
+      </div>
+      <div class="hi-r">
+        <span style="color:${BC[r.nb]||'#888'}">纳 ${r.nw}元/周</span><br>
+        <span style="color:${BC[r.sb]||'#888'}">标 ${r.sw}元/周</span>
+      </div>
+    </div>`).join('');
+}
+function clearHist(){
+  if(!confirm('确定清除所有记录？'))return;
+  localStorage.removeItem('dca_recs');
+  localStorage.removeItem('dca_b_'+new Date().getFullYear());
+  renderHist();renderBudget();
+}
+
+// ── 预算 ──
+function renderBudget(){
+  const yr=new Date().getFullYear();
+  const b=gls('dca_b_'+yr,{ndx:0,sp:0});
+  const np=Math.min(100,Math.round((b.ndx||0)/NDX_CAP*100));
+  const sp=Math.min(100,Math.round((b.sp||0)/SP_CAP*100));
+  document.getElementById('ndx-used').textContent=(b.ndx||0).toLocaleString();
+  document.getElementById('sp-used').textContent=(b.sp||0).toLocaleString();
+  document.getElementById('ndx-pct').textContent=np+'%';
+  document.getElementById('sp-pct').textContent=sp+'%';
+  document.getElementById('ndx-bar').style.width=np+'%';
+  document.getElementById('sp-bar').style.width=sp+'%';
+  document.getElementById('ndx-bar').style.background=np>90?'#f87171':np>70?'#fbbf24':'#2dd4bf';
+  document.getElementById('sp-bar').style.background=sp>90?'#f87171':sp>70?'#fbbf24':'#4ade80';
+}
+
+function gls(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}}
+function sls(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+let _tt;
+function showToast(m){
+  const t=document.getElementById('toast');
+  t.textContent=m;t.classList.add('show');
+  clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+renderHist();renderBudget();
+</script>
+</body>
+</html>
